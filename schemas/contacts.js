@@ -5,11 +5,10 @@ const validateSchema = Joi.object({
   phone: Joi.string()
     .regex(/^[0-9]{10}$/)
     .required(),
+  favorite: Joi.boolean(),
 });
-const putSchema = Joi.object({
-  name: Joi.string(),
-  email: Joi.string().email(),
-  phone: Joi.string().regex(/^[0-9]{10}$/),
+const patchSchema = Joi.object({
+  favorite: Joi.boolean().required(),
 });
 
-module.exports = { validateSchema, putSchema };
+module.exports = { validateSchema, patchSchema };
