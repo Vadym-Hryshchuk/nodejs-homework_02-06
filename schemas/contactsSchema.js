@@ -1,23 +1,15 @@
-const { Schema, model } = require("mongoose");
+const Joi = require("joi");
+const validateSchema = Joi.object({
+  name: Joi.string().required(),
+  email: Joi.string().email().required(),
+  phone: Joi.string()
+    .regex(/^[0-9]{10}$/)
+    .required(),
+  favorite: Joi.boolean(),
+});
 
-const contactsSchema = new Schema(
-  {
-    name: {
-      type: String,
-      required: [true, "Set name for contact"],
-    },
-    email: {
-      type: String,
-    },
-    phone: {
-      type: String,
-    },
-    favorite: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  { versionKey: false, timestamps: true }
-);
+const patchSchema = Joi.object({
+  favorite: Joi.boolean().required(),
+});
 
-module.exports = model("Contact", contactsSchema);
+module.exports = { validateSchema, patchSchema };
