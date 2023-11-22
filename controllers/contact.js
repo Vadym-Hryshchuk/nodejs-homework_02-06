@@ -3,7 +3,25 @@ const { validateSchema, patchSchema } = require("../schemas/contactsSchema");
 
 const getContactsList = async (req, res, next) => {
   try {
-    const contactsList = await Contact.find().exec();
+    const { page, limit, favorite } = req.query;
+
+    let searchQuery;
+    if (favorite !== undefined) {
+      searchQuery = { owner: req.user._id, favorite };
+    } else {
+      searchQuery = { owner: req.user._id };
+    }
+
+    let pagination;
+
+    if (page !== undefined && limit !== undefined) {
+      const skip = (page - 1) * limit;
+      pagination = { skip, limit };
+    } else {
+      pagination = {};
+    }
+
+    const contactsList = await Contact.find(searchQuery, "", pagination).exec();
 
     res.json(contactsList);
   } catch (error) {
@@ -26,10 +44,15 @@ const getContactById = async (req, res, next) => {
 const addContact = async (req, res, next) => {
   try {
     const response = validateSchema.validate(req.body);
+
     if (typeof response.error !== "undefined") {
       return res.status(400).json({ message: response.error.message });
     }
-    const data = await Contact.create(response.value);
+    const data = await Contact.create({
+      ...response.value,
+      owner: req.user._id,
+    });
+
     res.status(201).json(data);
   } catch (error) {
     next(error);

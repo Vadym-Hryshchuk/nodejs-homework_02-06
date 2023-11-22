@@ -2,7 +2,6 @@ const { isValidObjectId } = require("mongoose");
 
 const HttpError = (message) => {
   const error = new Error(message);
-  //   error.status = status;
   return error;
 };
 
