@@ -33,9 +33,14 @@ const getContactById = async (req, res, next) => {
     const { contactId } = req.params;
 
     const contact = await Contact.findById(contactId);
-    if (contact === null) {
+
+    if (
+      contact === null ||
+      req.user._id.toString() !== contact.owner._id.toString()
+    ) {
       return next();
     }
+
     res.json(contact);
   } catch (error) {
     next(error);
@@ -61,6 +66,7 @@ const addContact = async (req, res, next) => {
 const updateContactById = async (req, res, next) => {
   try {
     const { contactId } = req.params;
+
     const response = validateSchema.validate(req.body);
     const isEmptyRequest = Object.keys(response.value).length === 0;
 
@@ -71,12 +77,19 @@ const updateContactById = async (req, res, next) => {
       const err = response.error.details.map((err) => err.message).join(", ");
       return res.json({ message: err });
     }
+
+    const contactInfo = await Contact.findById(contactId);
+    if (
+      contactInfo === null ||
+      req.user._id.toString() !== contactInfo.owner._id.toString()
+    ) {
+      return next();
+    }
+
     const contact = await Contact.findByIdAndUpdate(contactId, req.body, {
       new: true,
     });
-    if (contact === null) {
-      return next();
-    }
+
     return res.json(contact);
   } catch (error) {
     next(error);
@@ -95,13 +108,17 @@ const updateStatusContact = async (req, res, next) => {
       const err = response.error.details.map((err) => err.message).join(", ");
       return res.json({ message: err });
     }
-
+    const contactInfo = await Contact.findById(contactId);
+    if (
+      contactInfo === null ||
+      req.user._id.toString() !== contactInfo.owner._id.toString()
+    ) {
+      return next();
+    }
     const contact = await Contact.findByIdAndUpdate(contactId, req.body, {
       new: true,
     });
-    if (contact === null) {
-      return next();
-    }
+
     return res.json(contact);
   } catch (error) {
     next(error);
@@ -110,11 +127,15 @@ const updateStatusContact = async (req, res, next) => {
 const removeContact = async (req, res, next) => {
   try {
     const { contactId } = req.params;
-    const contact = await Contact.findByIdAndDelete(contactId);
-
-    if (contact === null) {
+    const contactInfo = await Contact.findById(contactId);
+    if (
+      contactInfo === null ||
+      req.user._id.toString() !== contactInfo.owner._id.toString()
+    ) {
       return next();
     }
+    await Contact.findByIdAndDelete(contactId);
+
     return res.json({ message: "contact deleted" });
   } catch (error) {
     next(error);

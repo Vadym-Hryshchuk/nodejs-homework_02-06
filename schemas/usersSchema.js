@@ -13,5 +13,10 @@ const subscriptionSchema = Joi.object({
     .default("starter")
     .required(),
 });
+const updateAvatarSchema = Joi.object({
+  avatar:
+    Joi.string()
+    .required(),
+});
 
-module.exports = { authSchema, subscriptionSchema };
+module.exports = { authSchema, subscriptionSchema, updateAvatarSchema };

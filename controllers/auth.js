@@ -1,5 +1,12 @@
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const crypto = require("node:crypto");
+
+const Jimp = require("jimp");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const gravatar = require("gravatar");
+
 const User = require("../models/users");
 const schema = require("../schemas/usersSchema");
 
@@ -18,10 +25,12 @@ const register = async (req, res, next) => {
       return res.status(409).send({ message: "Email in use" });
     }
     const passwordHash = await bcrypt.hash(password, 10);
+    const avatarURL = gravatar.url(email);
 
     const data = await User.create({
       ...value,
       password: passwordHash,
+      avatarURL,
     });
 
     res
@@ -71,7 +80,7 @@ const current = async (req, res, next) => {
 };
 
 const logout = async (req, res, next) => {
-  await User.findByIdAndUpdate(req.user.id, { token: "" });
+  await User.findByIdAndUpdate(req.user._id, { token: "" });
 
   res.status(204).end();
 };
@@ -82,6 +91,7 @@ const subscription = async (req, res, next) => {
     return res.status(400).json({ message: error.message });
   }
   const { subscription } = value;
+
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { subscription },
@@ -95,5 +105,45 @@ const subscription = async (req, res, next) => {
     },
   });
 };
+const updateAvatar = async (req, res, next) => {
+  const { error } = schema.updateAvatarSchema.validate(req.body);
+  if (typeof error !== "undefined") {
+    return res.status(400).json({ message: error.message });
+  }
 
-module.exports = { register, login, logout, current, subscription };
+  try {
+    const avatars = await Jimp.read(req.file.path);
+    avatars.resize(250, 250).write(req.file.path);
+
+    const newFilename = `${crypto.randomUUID()}_${req.file.originalname}`;
+    await fs.rename(
+      req.file.path,
+      path.join(__dirname, "../", "public", "avatars", newFilename)
+    );
+    const avatarURL = path.join("avatars", newFilename);
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        avatarURL,
+      },
+      { new: true }
+    );
+
+    res.json({
+      user: {
+        avatarURL,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  logout,
+  current,
+  subscription,
+  updateAvatar,
+};
