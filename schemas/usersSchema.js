@@ -14,9 +14,15 @@ const subscriptionSchema = Joi.object({
     .required(),
 });
 const updateAvatarSchema = Joi.object({
-  avatar:
-    Joi.string()
-    .required(),
+  avatar: Joi.string().required(),
+});
+const updateVerifyStatusEmail = Joi.object({
+  email: Joi.string().email().required(),
 });
 
-module.exports = { authSchema, subscriptionSchema, updateAvatarSchema };
+module.exports = {
+  authSchema,
+  subscriptionSchema,
+  updateAvatarSchema,
+  updateVerifyStatusEmail,
+};
