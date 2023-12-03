@@ -9,6 +9,9 @@ const gravatar = require("gravatar");
 
 const User = require("../models/users");
 const schema = require("../schemas/usersSchema");
+const sendEmail = require("../helpers/sendEmail");
+
+const { BASE_URL } = process.env;
 
 const register = async (req, res, next) => {
   try {
@@ -16,7 +19,6 @@ const register = async (req, res, next) => {
     if (typeof error !== "undefined") {
       return res.status(400).json({ message: error.message });
     }
-
     const { email, password } = value;
 
     const isUser = await User.findOne({ email }).exec();
@@ -24,13 +26,23 @@ const register = async (req, res, next) => {
     if (isUser !== null) {
       return res.status(409).send({ message: "Email in use" });
     }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const avatarURL = gravatar.url(email);
+    const verificationToken = crypto.randomUUID();
+
+    await sendEmail({
+      to: email,
+      subject: "Email verification",
+      html: `Click on the link below to verify your email: <a href="${BASE_URL}/users/verify/${verificationToken}">${BASE_URL}/users/verify/${verificationToken}</a>`,
+      text: `Click on the link below to verify your email: ${BASE_URL}/users/verify/${verificationToken}`,
+    });
 
     const data = await User.create({
       ...value,
       password: passwordHash,
       avatarURL,
+      verificationToken,
     });
 
     res
@@ -59,6 +71,10 @@ const login = async (req, res, next) => {
   if (passwordCompare === false) {
     return res.status(401).json({ message: "Email or password is wrong" });
   }
+  if (isUser.verify !== true) {
+    return res.status(401).send({ message: "Your account is not verified" });
+  }
+
   const token = jwt.sign({ id: isUser._id }, process.env.SECRET_KEY, {
     expiresIn: "1h",
   });
@@ -139,6 +155,63 @@ const updateAvatar = async (req, res, next) => {
   }
 };
 
+const verificationUser = async (req, res, next) => {
+  const { verificationToken } = req.params;
+
+  try {
+    const data = await User.findOne({ verificationToken });
+    if (data === null) {
+      return next();
+    }
+    await User.findByIdAndUpdate(data._id, {
+      verificationToken: null,
+      verify: true,
+    });
+
+    res.json({ message: "Verification successful" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const repeatVerifyUser = async (req, res, next) => {
+  const { value, error } = schema.updateVerifyStatusEmail.validate(req.body);
+
+  if (typeof error !== "undefined") {
+    return res.status(400).json({ message: error.message });
+  }
+
+  try {
+    const user = await User.findOne({ email: value.email });
+
+    if (user === null) {
+      return next();
+    }
+
+    if (user.verify === true) {
+      return res
+        .status(400)
+        .json({ message: "Verification has already been passed" });
+    }
+    const verificationToken = crypto.randomUUID();
+
+    await User.findByIdAndUpdate(user._id, {
+      verificationToken,
+    });
+
+    await sendEmail({
+      to: value.email,
+      subject: "Email verification",
+      html: `Click on the link below to verify your email: <a href="${BASE_URL}/users/verify/${verificationToken}">${BASE_URL}/users/verify/${verificationToken}</a>`,
+      text: `Click on the link below to verify your email: ${BASE_URL}/users/verify/${verificationToken}`,
+    });
+
+    res.json({ message: "Verification email sent" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -146,4 +219,6 @@ module.exports = {
   current,
   subscription,
   updateAvatar,
+  verificationUser,
+  repeatVerifyUser,
 };
